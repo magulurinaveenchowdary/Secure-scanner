@@ -29,7 +29,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -122,12 +122,12 @@ class _ScanScreenQRState extends State<ScanScreenQR>
 
   // Scanner controller
   final MobileScannerController _cameraController = MobileScannerController(
-  facing: CameraFacing.back,
-  detectionSpeed: DetectionSpeed.normal,
-  detectionTimeoutMs: 250,
-  returnImage: true,
-  autoStart: false, // 🔥 IMPORTANT
-);
+    facing: CameraFacing.back,
+    detectionSpeed: DetectionSpeed.normal,
+    detectionTimeoutMs: 250,
+    returnImage: true,
+    autoStart: false, // 🔥 IMPORTANT
+  );
 
   final ImagePicker _picker = ImagePicker();
 
@@ -136,6 +136,7 @@ class _ScanScreenQRState extends State<ScanScreenQR>
   bool _isProcessing = false;
   Map<String, dynamic>? _parsedJson;
   Uint8List? _lastImageBytes;
+  Timer? _scanTimeoutTimer;
 
   // Sweep animation
   late final AnimationController _sweepController;
@@ -176,19 +177,25 @@ class _ScanScreenQRState extends State<ScanScreenQR>
   String get _bannerAdUnitId =>
       kDebugMode ? _googleTestBannerAdUnitId : _productionBannerAdUnitId;
 
-  // Developer-provided sample image path (for local debugging)
-  // Developer note: "/mnt/data/WhatsApp Image 2025-11-23 at 22.00.17.jpeg"
-  // (left here so you can test scanning using that file path if needed)
-  static const String devSampleImagePath =
-      '/mnt/data/WhatsApp Image 2025-11-23 at 22.00.17.jpeg';
-
   @override
   void initState() {
     super.initState();
 
+    // Log screen view to Firebase Analytics
+    FirebaseAnalytics.instance.logScreenView(screenName: 'ScanScreenQR');
+
     // Lock to portrait while scanning
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    _scanTimeoutTimer = Timer(const Duration(seconds: 12), () async {
+      if (!mounted || _isProcessing) return;
 
+      final prefs = await SharedPreferences.getInstance();
+      final hasAnyData = prefs.getKeys().isNotEmpty;
+
+      if (hasAnyData) {
+        _showScanFailureDialog();
+      }
+    });
     _sweepController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
@@ -200,13 +207,13 @@ class _ScanScreenQRState extends State<ScanScreenQR>
     _loadBannerAd();
 
     // ✅ Start camera AFTER UI is ready
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    try {
-      await _cameraController.start();
-    } catch (e) {
-      debugPrint('Camera start failed: $e');
-    }
-  });
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await _cameraController.start();
+      } catch (e) {
+        debugPrint('Camera start failed: $e');
+      }
+    });
   }
 
   @override
@@ -216,6 +223,7 @@ class _ScanScreenQRState extends State<ScanScreenQR>
 
     _interstitialAd?.dispose();
     _bannerAd?.dispose();
+    _scanTimeoutTimer?.cancel();
 
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
@@ -284,7 +292,45 @@ class _ScanScreenQRState extends State<ScanScreenQR>
     );
   }
 
+  void _showScanFailureDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Camera issue'),
+          content: const Text(
+            'Camera is unable to scan.\n\n'
+            'Please restart the app to continue scanning.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                RestartWidget.restartApp(context);
+              },
+              child: const Text('Restart app'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _showInterstitialThenNavigate(QrResultData result) async {
+    // Log scan event to Firebase Analytics
+    FirebaseAnalytics.instance.logEvent(
+      name: 'scan_success',
+      parameters: {'type': result.kind, 'format': result.format ?? 'unknown'},
+    );
+
     if (_isInterstitialReady && _interstitialAd != null) {
       try {
         _interstitialAd!.show();
@@ -331,6 +377,8 @@ class _ScanScreenQRState extends State<ScanScreenQR>
               MaterialPageRoute(builder: (_) => QrResultScreen(result: result)),
             )
             .then((_) async {
+              _scanTimeoutTimer?.cancel(); // ✅ ADD HERE
+
               _lastScanned = null;
               _lastImageBytes = null;
               await _cameraController.start();
@@ -387,13 +435,34 @@ class _ScanScreenQRState extends State<ScanScreenQR>
 
   // -------------------- Detect & handle --------------------
 
-  void _onDetect(BarcodeCapture capture) {
+  bool _showSafeScan = false;
+
+  void _onDetect(BarcodeCapture capture) async {
+    _scanTimeoutTimer?.cancel();
+
     if (_isProcessing || capture.barcodes.isEmpty) return;
+
+    _isProcessing = true;
 
     final picked = capture.barcodes.first;
     final imageBytes = capture.image;
 
-    _handleBarcode(picked, imageBytes);
+    // Show Safe Scan overlay
+    setState(() {
+      _showSafeScan = true;
+    });
+
+    // Pause scanning animation (UX-friendly)
+    await Future.delayed(const Duration(seconds: 3));
+
+    if (!mounted) return;
+
+    setState(() {
+      _showSafeScan = false;
+    });
+
+    // Proceed with normal flow
+    await _handleBarcode(picked, imageBytes);
   }
 
   void _applyZoom() {
@@ -511,10 +580,9 @@ class _ScanScreenQRState extends State<ScanScreenQR>
     final raw = barcode.rawValue;
     if (raw == null) return;
 
-    if (_isProcessing || raw == _lastScanned) return;
+    if (raw == _lastScanned) return;
 
     setState(() {
-      _isProcessing = true;
       _lastScanned = raw;
       _parsedJson = null;
       _lastImageBytes = imageBytes;
@@ -763,42 +831,6 @@ class _ScanScreenQRState extends State<ScanScreenQR>
     }
   }
 
-  // -------------------- URL Safe Browsing (kept for future use) --------------------
-
-  Future<bool?> _isUnsafeUrl(String url) async {
-    if (kSafeBrowsingApiKey.isEmpty) return null;
-    try {
-      final endpoint =
-          'https://safebrowsing.googleapis.com/v4/threatMatches:find?key=$kSafeBrowsingApiKey';
-      final body = {
-        'client': {'clientId': 'scanapp', 'clientVersion': '1.0'},
-        'threatInfo': {
-          'threatTypes': [
-            'MALWARE',
-            'SOCIAL_ENGINEERING',
-            'UNWANTED_SOFTWARE',
-            'POTENTIALLY_HARMFUL_APPLICATION',
-          ],
-          'platformTypes': ['ANY_PLATFORM'],
-          'threatEntryTypes': ['URL'],
-          'threatEntries': [
-            {'url': url},
-          ],
-        },
-      };
-      final res = await http.post(
-        Uri.parse(endpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
-      if (res.statusCode == 200) {
-        final map = jsonDecode(res.body) as Map<String, dynamic>;
-        return (map['matches'] != null && (map['matches'] as List).isNotEmpty);
-      }
-    } catch (_) {}
-    return null;
-  }
-
   // -------------------- UI --------------------
 
   @override
@@ -807,9 +839,6 @@ class _ScanScreenQRState extends State<ScanScreenQR>
 
     final double frameW = size.width * 0.86;
     final double frameH = frameW;
-
-    final bool canZoomOut = _zoom > 1.0 + 0.001;
-    final bool canZoomIn = _zoom < 4.0 - 0.001;
 
     // compute banner height (if ready) to avoid overlaps (approx + margin)
     final double adHeight = _isBannerAdReady && _bannerAd != null
@@ -845,7 +874,6 @@ class _ScanScreenQRState extends State<ScanScreenQR>
                     quarterTurns = 2;
                     break;
                   case NativeDeviceOrientation.unknown:
-                  default:
                     quarterTurns = 0;
                 }
 
@@ -911,6 +939,7 @@ class _ScanScreenQRState extends State<ScanScreenQR>
               ),
             ),
           ),
+          // Safe Scan overlay (3s animation)
 
           // Framing + sweep
           Align(
@@ -1048,6 +1077,16 @@ class _ScanScreenQRState extends State<ScanScreenQR>
                   )
                 : const SizedBox.shrink(),
           ),
+          // 🔝 Safe Scan overlay (must be topmost)
+          if (_showSafeScan)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Container(
+                  color: Colors.black.withOpacity(0.55),
+                  child: Center(child: _SafeScanOverlay()),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1172,4 +1211,56 @@ class _CornerPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CornerPainter old) =>
       old.color != color || old.thickness != thickness;
+}
+
+class _SafeScanOverlay extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24)],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          CircularProgressIndicator(strokeWidth: 3),
+          SizedBox(height: 14),
+          Text(
+            'Safe scan in progress',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RestartWidget extends StatefulWidget {
+  final Widget child;
+  const RestartWidget({Key? key, required this.child}) : super(key: key);
+
+  static void restartApp(BuildContext context) {
+    context.findAncestorStateOfType<_RestartWidgetState>()?.restartApp();
+  }
+
+  @override
+  State<RestartWidget> createState() => _RestartWidgetState();
+}
+
+class _RestartWidgetState extends State<RestartWidget> {
+  Key _key = UniqueKey();
+
+  void restartApp() {
+    setState(() {
+      _key = UniqueKey();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyedSubtree(key: _key, child: widget.child);
+  }
 }

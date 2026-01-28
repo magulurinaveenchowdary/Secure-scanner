@@ -15,6 +15,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 import 'scan_screen_qr.dart'; // for QrResultData model
 
@@ -23,10 +24,7 @@ class QrResultScreen extends StatelessWidget {
 
   static const Color _primaryBlue = Color(0xFF0A66FF);
 
-  const QrResultScreen({
-    super.key,
-    required this.result,
-  });
+  const QrResultScreen({super.key, required this.result});
 
   // Heuristic: sometimes barcode scanners mark barcodes as "phone".
   // Prefer product/book when the payload clearly looks like a product code / ISBN.
@@ -45,9 +43,13 @@ class QrResultScreen extends StatelessWidget {
       }
 
       // 3) raw value looks like pure digits of common barcode lengths (8,12,13,14)
-      final raw = (result.raw ?? '').trim();
+      final raw = result.raw.trim();
       final digitOnly = RegExp(r'^\d+$').hasMatch(raw);
-      if (digitOnly && (raw.length == 8 || raw.length == 12 || raw.length == 13 || raw.length == 14)) {
+      if (digitOnly &&
+          (raw.length == 8 ||
+              raw.length == 12 ||
+              raw.length == 13 ||
+              raw.length == 14)) {
         return true;
       }
     } catch (_) {
@@ -74,11 +76,16 @@ class QrResultScreen extends StatelessWidget {
   // Replace with YOUR production unit ID
   static const String _prodBannerId = 'ca-app-pub-4377808055186677/5171383893';
 
-  String get _bannerUnitId =>
-      kDebugMode ? _testBannerId : _prodBannerId;
+  String get _bannerUnitId => kDebugMode ? _testBannerId : _prodBannerId;
 
   @override
   Widget build(BuildContext context) {
+    // Log screen view to Firebase Analytics
+    FirebaseAnalytics.instance.logScreenView(
+      screenName: 'QrResultScreen',
+      parameters: {'result_type': result.kind},
+    );
+
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
 
@@ -86,10 +93,7 @@ class QrResultScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: _primaryBlue,
         foregroundColor: Colors.white,
-        title: const Text(
-          'Scan result',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Scan result', style: TextStyle(color: Colors.white)),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -300,21 +304,17 @@ class QrResultScreen extends StatelessWidget {
         children: [
           Text(
             title,
-            style: textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           SelectableText(
             mainLine,
-            style: textTheme.bodyLarge?.copyWith(
-              color: Colors.black87,
-            ),
+            style: textTheme.bodyLarge?.copyWith(color: Colors.black87),
           ),
           if (subLine != null) ...[
             const SizedBox(height: 8),
             Text(
-              subLine!,
+              subLine,
               style: textTheme.bodySmall?.copyWith(
                 color: Colors.grey.shade700,
                 fontStyle: FontStyle.italic,
@@ -379,11 +379,7 @@ class QrResultScreen extends StatelessWidget {
           label: 'Call',
           onTap: () => _onCall(context),
         ),
-        _CtaConfig(
-          icon: Icons.sms,
-          label: 'SMS',
-          onTap: () => _onSms(context),
-        ),
+        _CtaConfig(icon: Icons.sms, label: 'SMS', onTap: () => _onSms(context)),
         _CtaConfig(
           icon: Icons.share,
           label: 'Share',
@@ -533,13 +529,7 @@ class QrResultScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: ctas
-            .map(
-              (c) => _ctaItem(
-            icon: c.icon,
-            label: c.label,
-            onTap: c.onTap,
-          ),
-        )
+            .map((c) => _ctaItem(icon: c.icon, label: c.label, onTap: c.onTap))
             .toList(),
       ),
     );
@@ -562,10 +552,7 @@ class QrResultScreen extends StatelessWidget {
             child: Icon(icon, color: Colors.white, size: 22),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11),
-          ),
+          Text(label, style: const TextStyle(fontSize: 11)),
         ],
       ),
     );
@@ -574,8 +561,9 @@ class QrResultScreen extends StatelessWidget {
   // ---- CTA behaviour ----
 
   Future<void> _onShopNow(BuildContext context) async {
-    final query =
-    _isProduct ? (result.data?['code'] ?? result.raw).toString() : result.raw;
+    final query = _isProduct
+        ? (result.data?['code'] ?? result.raw).toString()
+        : result.raw;
 
     final uri = Uri.https('www.google.com', '/search', {
       'q': query,
@@ -602,9 +590,9 @@ class QrResultScreen extends StatelessWidget {
 
   Future<void> _onCopy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _displayValueForSearch()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Copied to clipboard')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
   }
 
   Future<void> _onCall(BuildContext context) async {
@@ -652,16 +640,17 @@ class QrResultScreen extends StatelessWidget {
     final pass = (result.data?['password'] ?? '') as String;
     final text = pass.isEmpty ? _displayValueForSearch() : pass;
     await Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Wi-Fi password copied')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Wi-Fi password copied')));
   }
 
   /// Create a .vcf file from the vCard text and let the OS
   /// open it with the default Contacts app (via share sheet).
   Future<void> _onAddContact(BuildContext context) async {
     try {
-      final vcard = _displayValueForSearch(); // should be full BEGIN:VCARD ... text
+      final vcard =
+          _displayValueForSearch(); // should be full BEGIN:VCARD ... text
 
       if (!vcard.contains('BEGIN:VCARD')) {
         // Fallback: just copy text if this isn't a vCard payload
@@ -680,10 +669,7 @@ class QrResultScreen extends StatelessWidget {
       );
       await file.writeAsString(vcard);
 
-      final xFile = XFile(
-        file.path,
-        mimeType: 'text/x-vcard',
-      );
+      final xFile = XFile(file.path, mimeType: 'text/x-vcard');
 
       // This will show the system share sheet; on phones, Contacts
       // app will usually appear as an option to directly import.
@@ -698,8 +684,9 @@ class QrResultScreen extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-            Text('Could not open Contacts – contact data copied instead.'),
+            content: Text(
+              'Could not open Contacts – contact data copied instead.',
+            ),
           ),
         );
       }
@@ -726,21 +713,21 @@ class QrResultScreen extends StatelessWidget {
     Uri uri;
     if (lat != null && lng != null) {
       uri = Uri.parse(
-          'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+      );
     } else {
       final q = _displayValueForSearch();
-      uri = Uri.parse(
-          'https://www.google.com/maps/search/?api=1&query=$q');
+      uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$q');
     }
 
     await _launchOrSnack(context, uri, openDirect: true);
   }
 
   Future<void> _launchOrSnack(
-      BuildContext context,
-      Uri uri, {
-        bool openDirect = false,
-      }) async {
+    BuildContext context,
+    Uri uri, {
+    bool openDirect = false,
+  }) async {
     try {
       if (openDirect) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -753,11 +740,9 @@ class QrResultScreen extends StatelessWidget {
       }
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open link'),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not open link')));
       }
     }
   }
@@ -794,9 +779,7 @@ class QrResultScreen extends StatelessWidget {
         // but the main value card now emphasizes Brand/Product instead.
         Text(
           'Captured image',
-          style: textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         ClipRRect(
@@ -824,7 +807,10 @@ class QrResultScreen extends StatelessWidget {
       final productName = (result.data?['product_name'] as String?)?.trim();
       final code = result.data?['code'] ?? result.raw;
 
-      if (brand != null && brand.isNotEmpty && productName != null && productName.isNotEmpty) {
+      if (brand != null &&
+          brand.isNotEmpty &&
+          productName != null &&
+          productName.isNotEmpty) {
         return '$brand $productName';
       }
       if (brand != null && brand.isNotEmpty) return brand;
@@ -846,9 +832,5 @@ class _CtaConfig {
   final String label;
   final VoidCallback onTap;
 
-  _CtaConfig({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+  _CtaConfig({required this.icon, required this.label, required this.onTap});
 }

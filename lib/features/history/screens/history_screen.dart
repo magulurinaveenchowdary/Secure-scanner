@@ -1,26 +1,19 @@
 // history_screen.dart
 import 'dart:convert';
-import 'dart:io';
-import 'dart:ui' as ui;
 
-import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:securescan/widgets/app_drawer.dart';
-import 'package:share_plus/share_plus.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../../../themes.dart';
-import '../../generate/screens/generator_screen.dart';
-import 'created_qr_modal_screen.dart';
-import '../../scan/screens/scan_screen_qr.dart';
+
 import 'created_qr_modal_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -31,8 +24,6 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  static const _primaryBlue = Color(0xFF0A66FF);
-
   bool isScanSelected = true;
   final GlobalKey _qrGlobalKey = GlobalKey();
 
@@ -54,7 +45,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   static const String _productionBannerAdUnitId =
       'ca-app-pub-2961863855425096/5968213716';
 
-  String get _adUnitId => kDebugMode ? _googleTestBannerAdUnitId : _productionBannerAdUnitId;
+  String get _adUnitId =>
+      kDebugMode ? _googleTestBannerAdUnitId : _productionBannerAdUnitId;
 
   // optional retry attempts
   int _loadAttempts = 0;
@@ -111,7 +103,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     final parsed = <Map<String, String>>[];
     final looksJson =
-        _createdEncoded.isNotEmpty && _createdEncoded.first.trim().startsWith('{');
+        _createdEncoded.isNotEmpty &&
+        _createdEncoded.first.trim().startsWith('{');
 
     if (looksJson) {
       for (final s in _createdEncoded) {
@@ -275,8 +268,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   String _formatNice(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final d = dt.day.toString().padLeft(2, '0');
     final m = months[dt.month - 1];
@@ -333,12 +336,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ad.dispose();
           _isBannerAdReady = false;
           _loadAttempts += 1;
-          debugPrint('[History] Banner failed to load: $error (attempt $_loadAttempts)');
+          debugPrint(
+            '[History] Banner failed to load: $error (attempt $_loadAttempts)',
+          );
           if (_loadAttempts <= _maxLoadAttempts) {
             final delaySeconds = 1 << (_loadAttempts - 1); // 1,2,4
             Future.delayed(Duration(seconds: delaySeconds), _loadBannerAd);
           } else {
-            debugPrint('[History] Banner: giving up after $_loadAttempts attempts.');
+            debugPrint(
+              '[History] Banner: giving up after $_loadAttempts attempts.',
+            );
           }
           setState(() {});
         },
@@ -362,8 +369,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final List<Map<String, String>> historyItems =
-    isScanSelected ? scannedItems : createdItems;
+    final List<Map<String, String>> historyItems = isScanSelected
+        ? scannedItems
+        : createdItems;
 
     // Ad height 0 when not ready (so nothing is shown)
     final adHeight = _isBannerAdReady && _bannerAd != null
@@ -379,15 +387,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         automaticallyImplyLeading: false,
         title: Text(
           "History",
-          style: textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
 
       // ---------------- Drawer ----------------
-      
-
       body: Column(
         children: [
           const SizedBox(height: 12),
@@ -461,145 +465,152 @@ class _HistoryScreenState extends State<HistoryScreen> {
               onRefresh: _loadAllHistory,
               child: historyItems.isEmpty
                   ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  const SizedBox(height: 160),
-                  Center(
-                    child: Text(
-                      "No history found",
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              )
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 160),
+                        Center(
+                          child: Text(
+                            "No history found",
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
                   : ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: historyItems.length,
-                itemBuilder: (context, index) {
-                  final item = historyItems[index];
-                  final showValue = isScanSelected
-                      ? (item['value'] ?? '')
-                      : (item['display'] ?? item['value'] ?? '');
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: historyItems.length,
+                      itemBuilder: (context, index) {
+                        final item = historyItems[index];
+                        final showValue = isScanSelected
+                            ? (item['value'] ?? '')
+                            : (item['display'] ?? item['value'] ?? '');
 
-                  // Always show 3-dots menu (Delete) for both Scan and Created tabs.
-                  final trailingWidget = PopupMenuButton<String>(
-                    color: isDark ? Colors.black : Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 6,
-                    onSelected: (value) async {
-                      if (value == 'Delete') {
-                        if (isScanSelected) {
-                          final encoded = item['encoded'];
-                          if (encoded != null) {
-                            await _deleteScanItemByEncoded(encoded);
-                          }
-                        } else {
-                          // For created items we attempt to delete by the raw/value string stored.
-                          final raw = item['raw'] ?? item['value'];
-                          if (raw != null) {
-                            await _deleteCreatedItemByRaw(raw);
-                          }
-                        }
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'Delete',
-                        child: Text(
-                          'Delete',
-                          style: TextStyle(color: Colors.redAccent),
-                        ),
-                      ),
-                    ],
-                    icon: Icon(
-                      Icons.more_vert,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  );
-
-                  return InkWell(
-                    onTap: () => _onHistoryItemTap(item),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark ? Colors.white12 : const Color(0xFFBFBFBF),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          // Left
-                          Container(
-                            width: 68,
-                            padding: const EdgeInsets.symmetric(vertical: 18),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.white10 : const Color(0xFFF4F4F4),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(12),
-                                bottomLeft: Radius.circular(12),
+                        // Always show 3-dots menu (Delete) for both Scan and Created tabs.
+                        final trailingWidget = PopupMenuButton<String>(
+                          color: isDark ? Colors.black : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 6,
+                          onSelected: (value) async {
+                            if (value == 'Delete') {
+                              if (isScanSelected) {
+                                final encoded = item['encoded'];
+                                if (encoded != null) {
+                                  await _deleteScanItemByEncoded(encoded);
+                                }
+                              } else {
+                                // For created items we attempt to delete by the raw/value string stored.
+                                final raw = item['raw'] ?? item['value'];
+                                if (raw != null) {
+                                  await _deleteCreatedItemByRaw(raw);
+                                }
+                              }
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'Delete',
+                              child: Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.redAccent),
                               ),
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                          ],
+                          icon: Icon(
+                            Icons.more_vert,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        );
+
+                        return InkWell(
+                          onTap: () => _onHistoryItemTap(item),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white12
+                                    : const Color(0xFFBFBFBF),
+                              ),
+                            ),
+                            child: Row(
                               children: [
-                                Icon(
-                                  _getIcon(item['type']!),
-                                  color: SecureScanTheme.accentBlue,
-                                  size: 22,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  item['type']!,
-                                  style: textTheme.labelSmall?.copyWith(
-                                    color: SecureScanTheme.accentBlue,
-                                    fontWeight: FontWeight.w600,
+                                // Left
+                                Container(
+                                  width: 68,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 18,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.white10
+                                        : const Color(0xFFF4F4F4),
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(12),
+                                      bottomLeft: Radius.circular(12),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        _getIcon(item['type']!),
+                                        color: SecureScanTheme.accentBlue,
+                                        size: 22,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        item['type']!,
+                                        style: textTheme.labelSmall?.copyWith(
+                                          color: SecureScanTheme.accentBlue,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
+
+                                // Right
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(14.0),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          showValue,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: textTheme.bodyLarge?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          item['time'] ?? '',
+                                          style: textTheme.bodySmall?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                // trailing
+                                const SizedBox(width: 8),
+                                trailingWidget,
+                                const SizedBox(width: 8),
                               ],
                             ),
                           ),
-
-                          // Right
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(14.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    showValue,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    item['time'] ?? '',
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // trailing
-                          const SizedBox(width: 8),
-                          trailingWidget,
-                          const SizedBox(width: 8),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ),
 
@@ -609,12 +620,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
             height: adHeight,
             child: _isBannerAdReady && _bannerAd != null
                 ? Center(
-              child: SizedBox(
-                width: _bannerAd!.size.width.toDouble(),
-                height: _bannerAd!.size.height.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
-              ),
-            )
+                    child: SizedBox(
+                      width: _bannerAd!.size.width.toDouble(),
+                      height: _bannerAd!.size.height.toDouble(),
+                      child: AdWidget(ad: _bannerAd!),
+                    ),
+                  )
                 : const SizedBox.shrink(),
           ),
         ],
@@ -650,7 +661,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
           if (coords.length >= 2) {
             final lat = coords[0].trim();
             final lng = coords[1].trim();
-            final google = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+            final google = Uri.parse(
+              'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+            );
             await launchUrl(google, mode: LaunchMode.externalApplication);
             return;
           } else {
@@ -679,11 +692,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => CreatedQrModalScreen(
-            type: type,
-            value: value,
-            time: time,
-          ),
+          builder: (_) =>
+              CreatedQrModalScreen(type: type, value: value, time: time),
           fullscreenDialog: true,
         ),
       );
@@ -701,16 +711,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: colorScheme.background,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(_getIcon(type), color: SecureScanTheme.accentBlue, size: 22),
               const SizedBox(width: 10),
-              Text(type,
-                  style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onBackground)),
+              Text(
+                type,
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onBackground,
+                ),
+              ),
             ],
           ),
           content: SingleChildScrollView(
@@ -769,9 +783,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text("Close",
-                  style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant)),
+              child: Text(
+                "Close",
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ],
         );

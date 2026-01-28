@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:securescan/widgets/app_drawer.dart';
+
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:securescan/themes.dart'; // <-- NEW: Theme Controller
 
@@ -41,11 +41,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
 
     // Sync selected theme with saved setting
-    selectedTheme = SecureScanThemeController
-        .themeModeToString(SecureScanThemeController.instance.themeModeNotifier.value);
+    selectedTheme = SecureScanThemeController.themeModeToString(
+      SecureScanThemeController.instance.themeModeNotifier.value,
+    );
 
-    SecureScanThemeController.instance.themeModeNotifier
-        .addListener(_listenThemeChanges);
+    SecureScanThemeController.instance.themeModeNotifier.addListener(
+      _listenThemeChanges,
+    );
 
     _loadBannerAd();
   }
@@ -60,8 +62,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    SecureScanThemeController.instance.themeModeNotifier
-        .removeListener(_listenThemeChanges);
+    SecureScanThemeController.instance.themeModeNotifier.removeListener(
+      _listenThemeChanges,
+    );
 
     _bannerAd?.dispose();
     super.dispose();
@@ -87,7 +90,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _loadAttempts += 1;
 
           if (_loadAttempts <= _maxLoadAttempts) {
-            final delay = Duration(seconds: 1 << (_loadAttempts - 1)); // 1,2,4 sec
+            final delay = Duration(
+              seconds: 1 << (_loadAttempts - 1),
+            ); // 1,2,4 sec
             Future.delayed(delay, _loadBannerAd);
           }
           setState(() {});
@@ -124,7 +129,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      
+
       appBar: AppBar(
         backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0.5,
@@ -179,8 +184,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: selectedTheme,
-                          icon: Icon(Icons.arrow_drop_down,
-                              color: isDark ? Colors.white : Colors.black),
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
                           dropdownColor: isDark ? Colors.black : Colors.white,
                           style: textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
@@ -251,12 +258,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             height: adHeight,
             child: _isBannerAdReady && _bannerAd != null
                 ? Center(
-              child: SizedBox(
-                width: _bannerAd!.size.width.toDouble(),
-                height: _bannerAd!.size.height.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
-              ),
-            )
+                    child: SizedBox(
+                      width: _bannerAd!.size.width.toDouble(),
+                      height: _bannerAd!.size.height.toDouble(),
+                      child: AdWidget(ad: _bannerAd!),
+                    ),
+                  )
                 : const SizedBox.shrink(),
           ),
         ],

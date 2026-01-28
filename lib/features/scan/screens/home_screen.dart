@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:securescan/widgets/app_drawer.dart';
 
 import 'package:securescan/features/generate/screens/generator_screen.dart';
@@ -14,16 +15,6 @@ class HomeScreen extends StatefulWidget {
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
-
-  static const _primaryBlue = Color(0xFF0A66FF);
-
-  // TODO: Replace with your real Play Store URL
-  static const String _playStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.securescan.securescan';
-
-  static const String _shareMessage =
-      'I am using QR & Barcode Scanner Generator App, the fast and secure QR and Barcode reader. '
-      'Try it now! $_playStoreUrl';
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -48,6 +39,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Log screen view to Firebase Analytics
+    FirebaseAnalytics.instance.logScreenView(screenName: 'HomeScreen');
+
     _loadBannerAd();
   }
 
@@ -138,16 +133,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 iconPath: 'assets/icons/misc/scan_qr_icon_white.png',
                 onTap: () {
                   if (ModalRoute.of(context)?.settings.name == "ScanScreenQR") {
-                  return;
-                }
+                    return;
+                  }
 
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    settings: const RouteSettings(name: "ScanScreenQR"),
-                    builder: (_) => ScanScreenQR(),
-                  ),
-                );
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      settings: const RouteSettings(name: "ScanScreenQR"),
+                      builder: (_) => ScanScreenQR(),
+                    ),
+                  );
                 },
               ),
               const SizedBox(height: 24),
@@ -183,9 +178,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  static Widget _divider() =>
-      Divider(thickness: 1, color: const Color(0xFF000000).withOpacity(0.1));
 }
 
 /// Rounded blue CTA with left icon + centered text
@@ -247,38 +239,6 @@ class PrimaryCTA extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Drawer list tile using textTheme and PNG tinting
-class _DrawerTile extends StatelessWidget {
-  const _DrawerTile({
-    required this.title,
-    required this.iconPath,
-    required this.onTap,
-    this.iconTint,
-  });
-
-  final String title;
-  final String iconPath;
-  final VoidCallback onTap;
-  final Color? iconTint;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-      leading: Image.asset(iconPath, width: 20, height: 20, color: iconTint),
-      title: Text(
-        title,
-        style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
-      ),
-      onTap: onTap,
-      horizontalTitleGap: 16,
-      minLeadingWidth: 28,
     );
   }
 }

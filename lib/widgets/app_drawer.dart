@@ -11,10 +11,6 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:securescan/features/scan/screens/scan_screen_qr.dart'; // provides QrResultData
-import 'package:securescan/features/scan/screens/scan_screen_qr.dart'
-    as scan_qr;
-import 'package:securescan/features/scan/screens/scan_screen_qr.dart'
-    as qr_screen_import;
 
 import 'package:securescan/features/generate/screens/generator_screen.dart';
 import 'package:securescan/features/generate/screens/my_qr_screen.dart';
@@ -223,7 +219,7 @@ class AppDrawer extends StatelessWidget {
                     final qrResult = QrResultData(
                       raw: value,
                       kind: _inferKind(value),
-                      format: first.format?.toString(),
+                      format: first.format.toString(),
                       timestamp: DateTime.now(),
                       data: null,
                       imageBytes: imageBytes,

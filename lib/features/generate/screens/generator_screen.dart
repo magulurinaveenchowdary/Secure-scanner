@@ -10,18 +10,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_native_contact_picker/model/contact.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:securescan/widgets/app_drawer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../../themes.dart';
-
-// Adjust this import to match your project structure for QrResultScreen.
-import 'package:securescan/features/scan/screens/qr_result_screen.dart';
 
 class CreateQRScreen extends StatelessWidget {
   final List<Map<String, dynamic>> items = [
@@ -58,11 +53,11 @@ class CreateQRScreen extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            color: colorScheme.surfaceVariant ?? colorScheme.surface,
+            color: colorScheme.surface,
             child: Text(
               "Create QR",
               style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant ?? colorScheme.onSurface,
+                color: colorScheme.onSurface,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -119,8 +114,9 @@ class CreateQRScreen extends StatelessWidget {
 }
 
 class CreateQRCodePage extends StatefulWidget {
-  String selectedType;
-  CreateQRCodePage({super.key, required this.selectedType});
+  const CreateQRCodePage({super.key, required this.selectedType});
+
+  final String selectedType;
 
   @override
   State<CreateQRCodePage> createState() => _CreateQRCodePageState();
@@ -1261,7 +1257,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
           labelText: label,
           hintText: hint,
           labelStyle: textTheme.labelMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant ?? colorScheme.onSurface,
+            color: colorScheme.onSurface,
             fontSize: 16,
           ),
           focusedBorder: OutlineInputBorder(
@@ -1324,7 +1320,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
               labelText: label,
               hintText: hint,
               labelStyle: textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant ?? colorScheme.onSurface,
+                color: colorScheme.onSurface,
                 fontSize: 16,
               ),
               focusedBorder: OutlineInputBorder(

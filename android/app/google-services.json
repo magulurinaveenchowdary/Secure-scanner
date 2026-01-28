@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "407808580024",
+    "project_id": "qr-barcode-scanner-c4cd7",
+    "storage_bucket": "qr-barcode-scanner-c4cd7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:407808580024:android:e59ca46c5395dcd540174d",
+        "android_client_info": {
+          "package_name": "com.securescan.securescan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdvXK-1EVaATpjUh4S1Ei4AspR-mMgt3c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      },
+      "admob_app_id": "ca-app-pub-2961863855425096~9911328154"
+    }
+  ],
+  "configuration_version": "1"
+}

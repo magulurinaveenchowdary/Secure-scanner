@@ -17,6 +17,6 @@ class CallReceiver : BroadcastReceiver() {
     private fun showAfterCallScreen(context: Context) {
         val intent = Intent(context, AfterCallActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        // context.startActivity(intent)
     }
 }
