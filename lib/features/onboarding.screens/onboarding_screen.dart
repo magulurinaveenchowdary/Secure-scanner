@@ -146,7 +146,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         : 0.0;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Stack(
           alignment: Alignment.bottomCenter,
@@ -171,7 +171,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           // Graphic Placeholder (illustration)
                           Container(
                             width: double.infinity,
-                            height: 450,
+                            height: 400,
                             decoration: BoxDecoration(
                               image: DecorationImage(
                                 image: Image.asset(data['image']!).image,
@@ -228,9 +228,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 height: 120,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF1A1A1A)
-                      : const Color(0xFF006EFF),
+                  color: const Color(0xFF006EFF),
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(30),
                     topRight: Radius.circular(30),

@@ -542,6 +542,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 // Left
                                 Container(
                                   width: 68,
+                                  alignment: Alignment.center,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 18,
                                   ),
@@ -565,6 +566,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       const SizedBox(height: 6),
                                       Text(
                                         item['type']!,
+                                        textAlign: TextAlign.center,
                                         style: textTheme.labelSmall?.copyWith(
                                           color: SecureScanTheme.accentBlue,
                                           fontWeight: FontWeight.w600,

@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:securescan/features/onboarding.screens/onboarding_screen.dart';
 import 'widgets/bottom_nav_shell.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class SecureScanApp extends StatelessWidget {
   const SecureScanApp({super.key});
 
@@ -16,13 +18,14 @@ class SecureScanApp extends StatelessWidget {
         builder: (context, mode, _) {
 
          return  MaterialApp(
+            navigatorKey: navigatorKey,
             debugShowCheckedModeBanner: false,
             title: 'QR & Barcode Scanner Generator',
             theme: SecureScanTheme.lightTheme,
             // 🌞
             darkTheme: SecureScanTheme.darkTheme,
            themeMode: mode, // <- controlled here
-
+           
            home: const _LaunchDecider(),
           );
         }

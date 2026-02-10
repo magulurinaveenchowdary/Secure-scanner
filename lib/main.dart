@@ -8,11 +8,8 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'firebase_options.dart';
 import 'package:securescan/features/scan/screens/scan_screen_qr.dart';
 import 'package:securescan/themes.dart';
-import 'package:securescan/services/call_manager.dart';
-import 'package:securescan/widgets/call_overlay_widget.dart'; // Import CallOverlayWidget
-
+import 'package:securescan/widgets/restart_widget.dart';
 import 'app.dart';
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,12 +25,11 @@ void main() async {
     return true;
   };
 
-  // Disable Google Fonts network loading to prevent crashes on offline devices
-  GoogleFonts.config.allowRuntimeFetching = false;
+  // Enable Google Fonts runtime fetching to avoid errors if assets are missing
+  GoogleFonts.config.allowRuntimeFetching = true;
 
   await MobileAds.instance.initialize();
   await SecureScanThemeController.instance.init();
-  await CallManager().init(); // <- Initialize CallManager
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -41,32 +37,4 @@ void main() async {
 }
 
 // AdMOB UNIT IDS
-
-// BANNER AD 1
-
-// ca-app-pub-4377808055186677~4699164078
-// ca-app-pub-4377808055186677/6096672505
-
-// BANNER AD 2
-// ca-app-pub-4377808055186677~4699164078
-// ca-app-pub-4377808055186677/5086843165
-
-// INTERSTITIAL ADS
-
-// interstitialAd1
-
-// ca-app-pub-4377808055186677~4699164078
-// ca-app-pub-4377808055186677/1969725234
-
-// Overlay Entry Point
-@pragma("vm:entry-point")
-void overlayMain() {
-  WidgetsFlutterBinding.ensureInitialized();
-  MobileAds.instance.initialize(); // Initialize Ads for overlay process
-  runApp(
-    const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: CallOverlayWidget(),
-    ),
-  );
-}
+// ... (comments kept)

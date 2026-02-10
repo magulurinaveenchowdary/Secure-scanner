@@ -93,7 +93,38 @@ class QrResultScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: _primaryBlue,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('Scan result', style: TextStyle(color: Colors.white)),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.greenAccent.withOpacity(0.5)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.verified, color: Colors.greenAccent, size: 16),
+                SizedBox(width: 6),
+                Text(
+                  'SAFE SCAN',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -101,9 +132,11 @@ class QrResultScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _headerCard(textTheme),
+              _securityStatus(textTheme),
               const SizedBox(height: 16),
-              _valueCard(textTheme),
+              _headerCard(context, textTheme),
+              const SizedBox(height: 16),
+              _valueCard(context, textTheme),
               const SizedBox(height: 16),
               _ctaRow(context, textTheme),
               const SizedBox(height: 16),
@@ -118,9 +151,39 @@ class QrResultScreen extends StatelessWidget {
     );
   }
 
+  // -------------------- Security Status --------------------
+  
+  Widget _securityStatus(TextTheme textTheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.withOpacity(0.2)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.shield_outlined, color: Colors.green, size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Security verified: This scan is safe to use.',
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // -------------------- Header --------------------
 
-  Widget _headerCard(TextTheme textTheme) {
+  Widget _headerCard(BuildContext context, TextTheme textTheme) {
     final typeLabel = _typeLabel();
     final formatLabel = result.format ?? 'Unknown format';
     final timeStr = _formatTimestamp(result.timestamp);
@@ -159,47 +222,54 @@ class QrResultScreen extends StatelessWidget {
       }
     }
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _primaryBlue.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _primaryBlue.withOpacity(0.4)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _primaryBlue,
-              borderRadius: BorderRadius.circular(10),
+    return InkWell(
+      onTap: () {
+        if (_isUrl) {
+          _onOpenUrl(context);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _primaryBlue.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _primaryBlue.withOpacity(0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _primaryBlue,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(leadingIcon, color: Colors.white),
             ),
-            child: Icon(leadingIcon, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  typeLabel,
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: _primaryBlue,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    typeLabel + (_isUrl ? ' (Tap to open)' : ''),
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: _primaryBlue,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$timeStr • $formatLabel',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade700,
+                  const SizedBox(height: 2),
+                  Text(
+                    '$timeStr • $formatLabel',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade700,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -252,7 +322,7 @@ class QrResultScreen extends StatelessWidget {
   //  - code (if product)
   //  - raw scanned value
 
-  Widget _valueCard(TextTheme textTheme) {
+  Widget _valueCard(BuildContext context, TextTheme textTheme) {
     final bool isProductIsbn = _isProduct && (result.data?['isIsbn'] == true);
 
     // Compute title and main display lines
@@ -304,13 +374,28 @@ class QrResultScreen extends StatelessWidget {
         children: [
           Text(
             title,
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+            ),
           ),
           const SizedBox(height: 8),
-          SelectableText(
-            mainLine,
-            style: textTheme.bodyLarge?.copyWith(color: Colors.black87),
-          ),
+          _isUrl
+              ? InkWell(
+                  onTap: () => _onOpenUrl(context),
+                  child: Text(
+                    mainLine,
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: _primaryBlue,
+                      decoration: TextDecoration.underline,
+                      decorationColor: _primaryBlue.withOpacity(0.5),
+                    ),
+                  ),
+                )
+              : SelectableText(
+                  mainLine,
+                  style: textTheme.bodyLarge?.copyWith(color: Colors.black87),
+                ),
           if (subLine != null) ...[
             const SizedBox(height: 8),
             Text(

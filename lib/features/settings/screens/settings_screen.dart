@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:securescan/themes.dart'; // <-- NEW: Theme Controller
+import 'package:securescan/themes.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -20,14 +20,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   static const _primaryBlue = Color(0xFF0A66FF);
 
-  // ---- Banner Ad fields ----
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
 
-  static const String _googleTestBannerAdUnitId =
+  static const _googleTestBannerAdUnitId =
       'ca-app-pub-3940256099942544/6300978111';
-
-  static const String _productionBannerAdUnitId =
+  static const _productionBannerAdUnitId =
       'ca-app-pub-2961863855425096/5968213716';
 
   String get _adUnitId =>
@@ -40,7 +38,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
 
-    // Sync selected theme with saved setting
     selectedTheme = SecureScanThemeController.themeModeToString(
       SecureScanThemeController.instance.themeModeNotifier.value,
     );
@@ -65,47 +62,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     SecureScanThemeController.instance.themeModeNotifier.removeListener(
       _listenThemeChanges,
     );
-
     _bannerAd?.dispose();
     super.dispose();
   }
 
-  // ---- Banner loader with retries ----
   void _loadBannerAd() {
     _bannerAd?.dispose();
     _bannerAd = BannerAd(
       adUnitId: _adUnitId,
       request: const AdRequest(),
-      size: AdSize.banner,
+      size: AdSize.mediumRectangle,
       listener: BannerAdListener(
-        onAdLoaded: (_) {
-          setState(() {
-            _isBannerAdReady = true;
-            _loadAttempts = 0;
-          });
-        },
+        onAdLoaded: (_) => setState(() => _isBannerAdReady = true),
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
           _isBannerAdReady = false;
-          _loadAttempts += 1;
-
-          if (_loadAttempts <= _maxLoadAttempts) {
-            final delay = Duration(
-              seconds: 1 << (_loadAttempts - 1),
-            ); // 1,2,4 sec
-            Future.delayed(delay, _loadBannerAd);
+          if (++_loadAttempts <= _maxLoadAttempts) {
+            Future.delayed(
+              Duration(seconds: 1 << (_loadAttempts - 1)),
+              _loadBannerAd,
+            );
           }
           setState(() {});
         },
       ),
-    );
-    _bannerAd!.load();
+    )..load();
   }
 
-  // ---- Save Theme ----
   Future<void> _changeTheme(String mode) async {
     await SecureScanThemeController.instance.setTheme(mode);
-
     setState(() => selectedTheme = mode);
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -117,30 +102,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  double _tileHeight(BuildContext context) {
+    return (MediaQuery.of(context).size.height * 0.08).clamp(56.0, 90.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final isDark = theme.brightness == Brightness.dark;
-
-    final adHeight = _isBannerAdReady && _bannerAd != null
-        ? _bannerAd!.size.height.toDouble()
-        : 0.0;
+    final tileHeight = _tileHeight(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-
       appBar: AppBar(
-        backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0.5,
-        automaticallyImplyLeading: false,
         centerTitle: true,
         title: Text(
           "Settings",
           style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
-
       body: Column(
         children: [
           const SizedBox(height: 10),
@@ -149,58 +131,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Container(
-              height: 68,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.black26 : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark ? Colors.white24 : const Color(0xFFC0C0C0),
-                  width: 1,
-                ),
-              ),
+              height: tileHeight,
+              decoration: _tileDecoration(isDark),
               child: Row(
                 children: [
-                  Container(
-                    width: 60,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white10 : const Color(0xFFF4F4F4),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        bottomLeft: Radius.circular(12),
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        FontAwesomeIcons.circleHalfStroke,
-                        color: Color(0xFF006EFF),
-                        size: 18,
-                      ),
-                    ),
-                  ),
-
+                  _tileIcon(FontAwesomeIcons.circleHalfStroke, isDark),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.only(left: 16, right: 8),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: selectedTheme,
+                          dropdownColor: isDark ? Colors.black : Colors.white,
                           icon: Icon(
                             Icons.arrow_drop_down,
                             color: isDark ? Colors.white : Colors.black,
                           ),
-                          dropdownColor: isDark ? Colors.black : Colors.white,
                           style: textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
-                          items: themeModes.map((String mode) {
-                            return DropdownMenuItem<String>(
-                              value: mode,
-                              child: Text(mode),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) _changeTheme(value);
-                          },
+                          items: themeModes
+                              .map(
+                                (mode) => DropdownMenuItem(
+                                  value: mode,
+                                  child: Text(mode),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) => v != null ? _changeTheme(v) : null,
                         ),
                       ),
                     ),
@@ -210,58 +168,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          // OTHER SETTINGS
           _buildSettingsTile(
             icon: FontAwesomeIcons.userShield,
             title: "Privacy & Permissions Policy",
-            onTap: () {},
+            onTap: () => _openUrl('https://nanogear.in/privacy'),
           ),
           _buildSettingsTile(
             icon: FontAwesomeIcons.lock,
-            title: "Security",
-            onTap: () {},
+            title: "Terms & Conditions",
+            onTap: () => _openUrl('https://nanogear.in/terms'),
           ),
           _buildSettingsTile(
             icon: FontAwesomeIcons.circleInfo,
             title: "App Info & Support",
-            onTap: () {},
+            onTap: () => _openUrl(
+                'https://play.google.com/store/apps/details?id=com.securescan.securescan'),
           ),
 
-          const Spacer(),
+          const SizedBox(height: 16),
 
           Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: "QR & Barcode Scanner Generator ",
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                  TextSpan(
-                    text: "©️ 2025",
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.white38 : Colors.black45,
-                    ),
-                  ),
-                ],
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              "QR & Barcode Scanner Generator ©️ 2026",
+              style: textTheme.bodyMedium?.copyWith(
+                color: isDark ? Colors.white60 : Colors.black54,
               ),
             ),
           ),
 
-          // BANNER AD
-          SizedBox(
-            width: double.infinity,
-            height: adHeight,
+          // ✅ 50% SPACE FOR AD (RESPONSIVE & SAFE)
+          Expanded(
+            flex: 5,
             child: _isBannerAdReady && _bannerAd != null
                 ? Center(
                     child: SizedBox(
                       width: _bannerAd!.size.width.toDouble(),
                       height: _bannerAd!.size.height.toDouble(),
-                      child: AdWidget(ad: _bannerAd!),
+                      child: _BannerAdWidget(ad: _bannerAd!),
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -269,6 +213,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw 'Could not launch $url';
+    }
   }
 
   Widget _buildSettingsTile({
@@ -285,30 +236,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Container(
-          height: 68,
-          decoration: BoxDecoration(
-            color: isDark ? Colors.black26 : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDark ? Colors.white24 : const Color(0xFFC0C0C0),
-              width: 1,
-            ),
-          ),
+          height: _tileHeight(context),
+          decoration: _tileDecoration(isDark),
           child: Row(
             children: [
-              Container(
-                width: 60,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : const Color(0xFFF4F4F4),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    bottomLeft: Radius.circular(12),
-                  ),
-                ),
-                child: Center(
-                  child: Icon(icon, color: const Color(0xFF006EFF), size: 18),
-                ),
-              ),
+              _tileIcon(icon, isDark),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
@@ -323,5 +255,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _tileIcon(IconData icon, bool isDark) {
+    return Container(
+      width: 60,
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : const Color(0xFFF4F4F4),
+        borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+      ),
+      child: Center(child: Icon(icon, color: _primaryBlue, size: 18)),
+    );
+  }
+
+  BoxDecoration _tileDecoration(bool isDark) {
+    return BoxDecoration(
+      color: isDark ? Colors.black26 : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: isDark ? Colors.white24 : const Color(0xFFC0C0C0),
+      ),
+    );
+  }
+}
+
+class _BannerAdWidget extends StatefulWidget {
+  final BannerAd ad;
+
+  const _BannerAdWidget({required this.ad});
+
+  @override
+  State<_BannerAdWidget> createState() => _BannerAdWidgetState();
+}
+
+class _BannerAdWidgetState extends State<_BannerAdWidget> {
+  late BannerAd _ad;
+
+  @override
+  void initState() {
+    super.initState();
+    _ad = widget.ad;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdWidget(ad: _ad);
   }
 }

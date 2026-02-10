@@ -255,8 +255,9 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
   // -------------------- Validation helpers --------------------
 
   // email: relaxed but practical
+  // email: standard regex
   static final RegExp _emailReg = RegExp(
-    r"^[\w\.\-+]+@[a-zA-Z0-9\.\-]+\.[a-zA-Z]{2,}$",
+    r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
   );
 
   // phone: exactly 10 digits
@@ -290,6 +291,27 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
     return ok;
   }
 
+  bool _validateEmail({bool setStateErrors = true}) {
+    var ok = true;
+    final email = emailController.text.trim();
+
+    String? emailErr;
+    if (email.isEmpty) {
+      emailErr = "Email is required";
+    } else if (!_emailReg.hasMatch(email)) {
+      emailErr = "Enter a valid email";
+    }
+
+    if (setStateErrors) {
+      setState(() {
+        _emailError = emailErr;
+      });
+    }
+
+    if (emailErr != null) ok = false;
+    return ok;
+  }
+
   bool _validateUrl({bool setStateErrors = true}) {
     var ok = true;
     final name = urlNameController.text.trim();
@@ -303,7 +325,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
     } else {
       final l = link.toLowerCase();
       if (!l.contains('.') && !l.startsWith('http'))
-        linkErr = "Enter a valid link";
+        linkErr = "Enter a valid link (e.g. example.com)";
     }
 
     if (setStateErrors) {
@@ -326,10 +348,11 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
 
     String? passErr;
     if (encryptionValue.toLowerCase() != 'none') {
-      if (pass.isEmpty)
+      if (pass.isEmpty) {
         passErr = "Password is required for selected encryption";
-      else if (pass.length < 4)
-        passErr = "Password is too short";
+      } else if (pass.length < 8) {
+        passErr = "Password must be at least 8 characters";
+      }
     }
 
     if (setStateErrors) {
@@ -462,7 +485,10 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
 
     if (selectedType == "Contact") {
       final ok = _validateContact();
-      if (!ok) return;
+      if (!ok) {
+        _showInlineError("Please fix the errors above");
+        return;
+      }
 
       final company = companyController.text.trim();
       final designation = designationController.text.trim();
@@ -482,13 +508,17 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
         setState(() {
           _phoneError = "Valid phone number is required";
         });
+        _showInlineError("Please enter a valid phone number");
         return;
       }
 
       qrData = "tel:${_completePhoneNumber}";
     } else if (selectedType == "URL") {
       final ok = _validateUrl();
-      if (!ok) return;
+      if (!ok) {
+        _showInlineError("Please enter a valid URL");
+        return;
+      }
 
       var link = urlLinkController.text.trim();
       if (!link.toLowerCase().startsWith('http')) {
@@ -497,7 +527,10 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
       qrData = link;
     } else if (selectedType == "Wifi") {
       final ok = _validateWifi();
-      if (!ok) return;
+      if (!ok) {
+        _showInlineError("Please fix the errors above");
+        return;
+      }
 
       final enc = encryptionValue == 'WPA/WPA2'
           ? 'WPA'
@@ -509,15 +542,16 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
         qrData = "WIFI:S:${wifiNameController.text};T:${enc};P:${pwd};;";
       }
     } else if (selectedType == "Email") {
-      if (emailController.text.isEmpty) {
-        // _showError("Email cannot be empty.");
+      final ok = _validateEmail();
+      if (!ok) {
+        _showInlineError("Please enter a valid email");
         return;
       }
       qrData = "mailto:${emailController.text}";
     } else if (selectedType == "Text" ||
         selectedType == "Content from clipboard") {
       if (designationController.text.isEmpty) {
-        // _showError("Please enter text.");
+        _showInlineError("Please enter text.");
         return;
       }
       qrData = designationController.text;
@@ -878,7 +912,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
             keyboard: TextInputType.emailAddress,
             showTrailingErrorIcon: true,
             onChanged: (_) => _onContactFieldChanged(),
-            textStyleColor: colorScheme.onBackground,
+            textStyleColor: colorScheme.onSurface,
           ),
           // optional fields
           _buildTextField("Company", companyController, textTheme, colorScheme),
@@ -955,7 +989,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
             error: _urlNameError,
             keyboard: TextInputType.text,
             onChanged: (_) => _onUrlFieldChanged(),
-            textStyleColor: colorScheme.onBackground,
+            textStyleColor: colorScheme.onSurface,
           ),
           _buildTextFieldWithError(
             label: "URL Link *",
@@ -966,7 +1000,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
             keyboard: TextInputType.url,
             hint: "https://example.com",
             onChanged: (_) => _onUrlFieldChanged(),
-            textStyleColor: colorScheme.onBackground,
+            textStyleColor: colorScheme.onSurface,
           ),
         ] else ...[
           _buildTextFieldWithError(
@@ -976,7 +1010,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
             colorScheme: colorScheme,
             error: _wifiNameError,
             onChanged: (_) => _onWifiFieldChanged(),
-            textStyleColor: colorScheme.onBackground,
+            textStyleColor: colorScheme.onSurface,
           ),
           const SizedBox(height: 10),
           // Encryption dropdown
@@ -1198,7 +1232,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
               child: Text(
                 "${f['label']}: ${f['value']}",
                 style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onBackground,
+                  color: colorScheme.onSurface,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1252,7 +1286,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
         maxLines: maxLines,
         style:
             textStyle ??
-            TextStyle(fontSize: 18, color: colorScheme.onBackground),
+            TextStyle(fontSize: 18, color: colorScheme.onSurface),
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
@@ -1313,7 +1347,7 @@ class _CreateQRCodePageState extends State<CreateQRCodePage> {
               fontSize: 18,
               color: colorStyleOrDefault(
                 textStyleColor,
-                Theme.of(context).colorScheme.onBackground,
+                Theme.of(context).colorScheme.onSurface,
               ),
             ),
             decoration: InputDecoration(

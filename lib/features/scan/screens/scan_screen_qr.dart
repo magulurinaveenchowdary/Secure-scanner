@@ -35,6 +35,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'package:securescan/features/scan/screens/qr_result_screen.dart';
 import 'package:securescan/widgets/app_drawer.dart';
+import 'package:securescan/widgets/restart_widget.dart';
+import 'package:securescan/app.dart';
 
 class ScanScreenQR extends StatefulWidget {
   const ScanScreenQR({Key? key}) : super(key: key);
@@ -100,7 +102,7 @@ class _Payload {
 // -------------------- Screen --------------------
 
 class _ScanScreenQRState extends State<ScanScreenQR>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const Color _brandBlue = Color(0xFF0A66FF);
   static const _prefsKey = 'scan_history';
   static const _historyCap = 200;
@@ -123,10 +125,10 @@ class _ScanScreenQRState extends State<ScanScreenQR>
   // Scanner controller
   final MobileScannerController _cameraController = MobileScannerController(
     facing: CameraFacing.back,
-    detectionSpeed: DetectionSpeed.normal,
-    detectionTimeoutMs: 250,
+    detectionSpeed: DetectionSpeed.unrestricted,
+    detectionTimeoutMs: 100,
     returnImage: true,
-    autoStart: false, // 🔥 IMPORTANT
+    autoStart: true,
   );
 
   final ImagePicker _picker = ImagePicker();
@@ -158,7 +160,7 @@ class _ScanScreenQRState extends State<ScanScreenQR>
 
   String get _interstitialAdUnitId => kDebugMode
       ? _googleTestInterstitialAdUnitId
-      : _productionInterstitialAdUnitId;
+      : _productionInterstitialAdUnitId;             
 
   // --------- Banner Ad Fields ----------
   BannerAd? _bannerAd;
@@ -190,7 +192,7 @@ class _ScanScreenQRState extends State<ScanScreenQR>
       if (!mounted || _isProcessing) return;
 
       final prefs = await SharedPreferences.getInstance();
-      final hasAnyData = prefs.getKeys().isNotEmpty;
+      final hasAnyData = prefs.getKeys().isEmpty;
 
       if (hasAnyData) {
         _showScanFailureDialog();
@@ -206,18 +208,66 @@ class _ScanScreenQRState extends State<ScanScreenQR>
     _loadInterstitial();
     _loadBannerAd();
 
-    // ✅ Start camera AFTER UI is ready
+    // Start camera (autoStart handles initial start, but this ensures it's running)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        await _cameraController.start();
+        if (!_cameraController.value.isInitialized) {
+          await _cameraController.start();
+        }
+        _checkAndShowFocusToast();
       } catch (e) {
         debugPrint('Camera start failed: $e');
       }
     });
+
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (!_cameraController.value.isInitialized) return;
+
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        _cameraController.stop();
+        break;
+      case AppLifecycleState.resumed:
+        _cameraController.start();
+        break;
+      case AppLifecycleState.inactive:
+        // Keep camera running on inactive (e.g. notification shade) to avoid black screen
+        break;
+    }
+  }
+
+  Future<void> _checkAndShowFocusToast() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasShown = prefs.getBool('first_scan_toast_shown') ?? false;
+    if (!hasShown) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("Camera lens not focusing. Please restart the app"),
+          duration: const Duration(seconds: 4),
+          backgroundColor: Colors.redAccent,
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ),
+      );
+      await prefs.setBool('first_scan_toast_shown', true);
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sweepController.dispose();
     _cameraController.dispose();
 
@@ -298,13 +348,18 @@ class _ScanScreenQRState extends State<ScanScreenQR>
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text('Camera issue'),
+          title: const Text(
+            'Camera issue',
+            style: TextStyle(color: Colors.black),
+          ),
           content: const Text(
             'Camera is unable to scan.\n\n'
             'Please restart the app to continue scanning.',
+            style: TextStyle(color: Colors.black87),
           ),
           actions: [
             TextButton(
@@ -313,10 +368,10 @@ class _ScanScreenQRState extends State<ScanScreenQR>
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop();
-                RestartWidget.restartApp(context);
+                
+                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>SecureScanApp()));
               },
-              child: const Text('Restart app'),
+              child:  Text('Restart app',style:TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -357,45 +412,26 @@ class _ScanScreenQRState extends State<ScanScreenQR>
         timeout.cancel();
 
         if (!mounted) return;
-        Navigator.of(context)
-            .push(
-              MaterialPageRoute(builder: (_) => QrResultScreen(result: result)),
-            )
-            .then((_) async {
-              // When coming back, resume scanning
-              _lastScanned = null;
-              _lastImageBytes = null;
-              await _cameraController.start();
-            });
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => QrResultScreen(result: result)),
+        );
       } catch (e) {
         debugPrint(
           '[Ads] Error showing interstitial: $e — navigating immediately.',
         );
         if (!mounted) return;
-        Navigator.of(context)
-            .push(
-              MaterialPageRoute(builder: (_) => QrResultScreen(result: result)),
-            )
-            .then((_) async {
-              _scanTimeoutTimer?.cancel(); // ✅ ADD HERE
-
-              _lastScanned = null;
-              _lastImageBytes = null;
-              await _cameraController.start();
-            });
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => QrResultScreen(result: result)),
+        );
       }
     } else {
       // No interstitial ready — fall back to immediate navigation
       if (!mounted) return;
-      Navigator.of(context)
-          .push(
-            MaterialPageRoute(builder: (_) => QrResultScreen(result: result)),
-          )
-          .then((_) async {
-            _lastScanned = null;
-            _lastImageBytes = null;
-            await _cameraController.start();
-          });
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => QrResultScreen(result: result)),
+      );
     }
   }
 
@@ -435,33 +471,18 @@ class _ScanScreenQRState extends State<ScanScreenQR>
 
   // -------------------- Detect & handle --------------------
 
-  bool _showSafeScan = false;
-
   void _onDetect(BarcodeCapture capture) async {
     _scanTimeoutTimer?.cancel();
 
     if (_isProcessing || capture.barcodes.isEmpty) return;
-
     _isProcessing = true;
 
     final picked = capture.barcodes.first;
     final imageBytes = capture.image;
 
-    // Show Safe Scan overlay
-    setState(() {
-      _showSafeScan = true;
-    });
-
-    // Pause scanning animation (UX-friendly)
-    await Future.delayed(const Duration(seconds: 3));
-
     if (!mounted) return;
 
-    setState(() {
-      _showSafeScan = false;
-    });
-
-    // Proceed with normal flow
+    // Proceed immediately with normal flow
     await _handleBarcode(picked, imageBytes);
   }
 
@@ -598,8 +619,9 @@ class _ScanScreenQRState extends State<ScanScreenQR>
       _parsedJson = null;
     }
 
-    await Future.delayed(const Duration(milliseconds: 200));
-    await _cameraController.stop();
+    // We don't stop the camera here anymore to avoid black frames.
+    // Instead, _isProcessing guard at the top of _onDetect handles it.
+    // await _cameraController.stop();
 
     // Classify payload
     final payload = _classifyPayload(raw, symbology: barcode.format.name);
@@ -1000,7 +1022,7 @@ class _ScanScreenQRState extends State<ScanScreenQR>
           Positioned(
             left: 0,
             right: 0,
-            bottom: 140 + (adHeight > 0 ? adHeight - 12 : 0),
+            bottom: 130 + (adHeight > 0 ? adHeight - 12 : 0),
             child: const _HintBubble(text: 'Point camera at a code to scan'),
           ),
 
@@ -1077,16 +1099,6 @@ class _ScanScreenQRState extends State<ScanScreenQR>
                   )
                 : const SizedBox.shrink(),
           ),
-          // 🔝 Safe Scan overlay (must be topmost)
-          if (_showSafeScan)
-            Positioned.fill(
-              child: AbsorbPointer(
-                child: Container(
-                  color: Colors.black.withOpacity(0.55),
-                  child: Center(child: _SafeScanOverlay()),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -1211,56 +1223,4 @@ class _CornerPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CornerPainter old) =>
       old.color != color || old.thickness != thickness;
-}
-
-class _SafeScanOverlay extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 24)],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          CircularProgressIndicator(strokeWidth: 3),
-          SizedBox(height: 14),
-          Text(
-            'Safe scan in progress',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class RestartWidget extends StatefulWidget {
-  final Widget child;
-  const RestartWidget({Key? key, required this.child}) : super(key: key);
-
-  static void restartApp(BuildContext context) {
-    context.findAncestorStateOfType<_RestartWidgetState>()?.restartApp();
-  }
-
-  @override
-  State<RestartWidget> createState() => _RestartWidgetState();
-}
-
-class _RestartWidgetState extends State<RestartWidget> {
-  Key _key = UniqueKey();
-
-  void restartApp() {
-    setState(() {
-      _key = UniqueKey();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return KeyedSubtree(key: _key, child: widget.child);
-  }
 }
